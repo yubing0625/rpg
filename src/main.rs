@@ -15,7 +15,7 @@ use macroquad::ui::*;
 #[macroquad::main("rpg")]
 async fn main() {
     loop {
-        clear_background(BLACK);
+        clear_background(DARKPURPLE);
 
         root_ui().label(None, "hello megaui");
         if root_ui().button(None, "Push me") {

@@ -1,5 +1,5 @@
 use macroquad::prelude::*;
-use macroquad::ui::*;
+// use macroquad::ui::*;
 
 /// Window configuration
 // fn window_conf() -> Conf {

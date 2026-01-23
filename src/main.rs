@@ -23,7 +23,7 @@ async fn main() {
     loop {
         clear_background(DARKPURPLE);
 
-
+        // PC端
         if is_key_down(KeyCode::Right) {
             x += 1.0;
         }
@@ -37,6 +37,11 @@ async fn main() {
             y -= 1.0;
         }
 
+        // 触屏输入（手机端）
+        for touch in touches() {
+            x = touch.position.x;
+            y = touch.position.y;
+        }
         draw_circle(x, y, 16.0, YELLOW);
 
         next_frame().await

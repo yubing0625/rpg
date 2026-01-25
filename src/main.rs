@@ -43,7 +43,7 @@ impl TileType {
             TileType::Water => "~",      // 水域用波浪号表示
             TileType::Grass => "\"",     // 草地用双引号表示
             TileType::Mountain => "^",   // 山脉用尖号表示
-            TileType::Forest => "♠",     // 森林用黑桃表示
+            TileType::Forest => "&",     // 森林用黑桃表示
             TileType::Town => "※",      // 城镇用米字表示
             TileType::Dungeon => "▼",    // 地牢用三角表示
         }
@@ -87,6 +87,20 @@ enum ItemType {
     Quest,                        // 任务物品
 }
 
+/// 对话选项结构体
+#[derive(Clone)]
+struct DialogueOption {
+    text: String,           // 选项文本
+    next_node: Option<usize>, // 跳转到的下一个节点（None 表示结束对话）
+}
+
+/// 对话节点结构体
+#[derive(Clone)]
+struct DialogueNode {
+    text: String,                  // 当前节点的对话文本
+    options: Vec<DialogueOption>,  // 可选项
+}
+
 /// NPC（非玩家角色）结构体
 #[derive(Clone)]
 struct NPC {
@@ -97,7 +111,7 @@ struct NPC {
     hp: i32,                // 当前生命值
     max_hp: i32,            // 最大生命值
     hostile: bool,          // 是否敌对（true为敌人，false为友好）
-    dialogue: Vec<String>,  // 对话内容列表
+    dialogue: Vec<DialogueNode>,  // 分支对话树
 }
 
 /// 玩家结构体
@@ -302,7 +316,7 @@ impl GameMap {
 enum GameState {
     Playing,           // 正常游玩状态（移动、探索）
     Inventory,         // 背包界面
-    Dialogue(usize),   // 对话状态（参数是NPC的索引）
+    Dialogue(usize, usize, usize),   // 对话状态（NPC索引，当前节点索引，选中的选项索引）
     Combat(usize),     // 战斗状态（参数是敌人NPC的索引）
 }
 
@@ -384,9 +398,26 @@ impl Game {
                 max_hp: 50,
                 hostile: false,
                 dialogue: vec![
-                    "Hello, traveler!".to_string(),
-                    "I sell goods across the wasteland.".to_string(),
-                    "Safe travels!".to_string(),
+                    DialogueNode {
+                        text: "Howdy, stranger! What brings you to these parts?".to_string(),
+                        options: vec![
+                            DialogueOption { text: "I'm here for adventure!".to_string(), next_node: Some(1) },
+                            DialogueOption { text: "Just passing by.".to_string(), next_node: Some(2) },
+                            DialogueOption { text: "None of your business.".to_string(), next_node: None },
+                        ],
+                    },
+                    DialogueNode {
+                        text: "Adventure, eh? Well, watch out for demonic cows!".to_string(),
+                        options: vec![
+                            DialogueOption { text: "Thanks for the tip!".to_string(), next_node: None },
+                        ],
+                    },
+                    DialogueNode {
+                        text: "Safe travels, partner!".to_string(),
+                        options: vec![
+                            DialogueOption { text: "See ya!".to_string(), next_node: None },
+                        ],
+                    },
                 ],
             },
         ];
@@ -431,7 +462,7 @@ impl Game {
                 self.state = GameState::Combat(npc_idx);
                 self.add_message(format!("Combat with {}!", self.npcs[npc_idx].name));
             } else {
-                self.state = GameState::Dialogue(npc_idx);
+                self.state = GameState::Dialogue(npc_idx, 0, 0); // 从第0个节点开始，选中第0个选项
             }
             return;  // 不移动玩家位置
         }
@@ -527,9 +558,26 @@ impl Game {
                 max_hp: 50,
                 hostile: false,
                 dialogue: vec![
-                    "Hello, traveler!".to_string(),
-                    "I sell goods across the wasteland.".to_string(),
-                    "Safe travels!".to_string(),
+                    DialogueNode {
+                        text: "Howdy, stranger! What brings you to these parts?".to_string(),
+                        options: vec![
+                            DialogueOption { text: "I'm here for adventure!".to_string(), next_node: Some(1) },
+                            DialogueOption { text: "Just passing by.".to_string(), next_node: Some(2) },
+                            DialogueOption { text: "None of your business.".to_string(), next_node: None },
+                        ],
+                    },
+                    DialogueNode {
+                        text: "Adventure, eh? Well, watch out for demonic cows!".to_string(),
+                        options: vec![
+                            DialogueOption { text: "Thanks for the tip!".to_string(), next_node: None },
+                        ],
+                    },
+                    DialogueNode {
+                        text: "Safe travels, partner!".to_string(),
+                        options: vec![
+                            DialogueOption { text: "See ya!".to_string(), next_node: None },
+                        ],
+                    },
                 ],
             },
         ];
@@ -547,8 +595,25 @@ impl Game {
                 max_hp: 50,
                 hostile: false,
                 dialogue: vec![
-                    "Welcome to our town!".to_string(),
-                    "It's safe here.".to_string(),
+                    DialogueNode {
+                        text: "Welcome to our town! Are you lost or just weird?".to_string(),
+                        options: vec![
+                            DialogueOption { text: "A bit of both, honestly.".to_string(), next_node: Some(1) },
+                            DialogueOption { text: "I'm looking for work.".to_string(), next_node: Some(2) },
+                        ],
+                    },
+                    DialogueNode {
+                        text: "That's the spirit! You'll fit right in.".to_string(),
+                        options: vec![
+                            DialogueOption { text: "Thanks?".to_string(), next_node: None },
+                        ],
+                    },
+                    DialogueNode {
+                        text: "Try the saloon. Or the cemetery. Both are lively.".to_string(),
+                        options: vec![
+                            DialogueOption { text: "I'll check them out.".to_string(), next_node: None },
+                        ],
+                    },
                 ],
             },
             NPC {
@@ -560,8 +625,25 @@ impl Game {
                 max_hp: 80,
                 hostile: false,
                 dialogue: vec![
-                    "Need repairs?".to_string(),
-                    "My craftsmanship is top notch!".to_string(),
+                    DialogueNode {
+                        text: "Need repairs? Or just here to chat?".to_string(),
+                        options: vec![
+                            DialogueOption { text: "My gear's busted.".to_string(), next_node: Some(1) },
+                            DialogueOption { text: "Just lonely.".to_string(), next_node: Some(2) },
+                        ],
+                    },
+                    DialogueNode {
+                        text: "That'll be 50 meat. Up front.".to_string(),
+                        options: vec![
+                            DialogueOption { text: "Here you go.".to_string(), next_node: None },
+                        ],
+                    },
+                    DialogueNode {
+                        text: "Me too, friend. Me too.".to_string(),
+                        options: vec![
+                            DialogueOption { text: "...".to_string(), next_node: None },
+                        ],
+                    },
                 ],
             },
         ];
@@ -578,7 +660,14 @@ impl Game {
                 hp: 80,
                 max_hp: 80,
                 hostile: true,
-                dialogue: vec!["Intruders must die!".to_string()],
+                dialogue: vec![
+                    DialogueNode {
+                        text: "Intruders must die!".to_string(),
+                        options: vec![
+                            DialogueOption { text: "Fight!".to_string(), next_node: None },
+                        ],
+                    },
+                ],
             },
             NPC {
                 name: "Mutant Beast".to_string(),
@@ -588,7 +677,14 @@ impl Game {
                 hp: 100,
                 max_hp: 100,
                 hostile: true,
-                dialogue: vec!["Hssssss...".to_string()],
+                dialogue: vec![
+                    DialogueNode {
+                        text: "Hssssss...".to_string(),
+                        options: vec![
+                            DialogueOption { text: "Back away slowly...".to_string(), next_node: None },
+                        ],
+                    },
+                ],
             },
         ];
     }
@@ -830,20 +926,24 @@ fn draw_inventory(game: &Game, font: &Font) {
 }
 
 /// 绘制对话界面
-fn draw_dialogue(game: &Game, npc_idx: usize, font: &Font) {
+/// 绘制分支对话界面（West of Loathing风格）
+fn draw_dialogue(game: &Game, npc_idx: usize, node_idx: usize, selected: usize, font: &Font) {
     // 计算对话框位置（屏幕底部）
     let panel_w = 500.0;
     let panel_h = 200.0;
     let panel_x = (screen_width() - panel_w) / 2.0;
     let panel_y = screen_height() - panel_h - 50.0;
-    
-    // 绘制对话框背景和边框（绿色边框表示友好）
+
+    // 绘制对话框背景和边框
     draw_rectangle(panel_x, panel_y, panel_w, panel_h, BLACK);
     draw_rectangle_lines(panel_x, panel_y, panel_w, panel_h, 2.0, GREEN);
-    
+
     // 获取NPC数据
     let npc = &game.npcs[npc_idx];
-    
+
+    // 获取当前对话节点
+    let node = &npc.dialogue[node_idx];
+
     // 显示NPC名字
     draw_text_ex(&npc.name, panel_x + 10.0, panel_y + 30.0, TextParams {
         font: Some(font),
@@ -851,19 +951,30 @@ fn draw_dialogue(game: &Game, npc_idx: usize, font: &Font) {
         color: GREEN,
         ..Default::default()
     });
-    
-    // 显示对话内容
-    for (i, line) in npc.dialogue.iter().enumerate() {
-        draw_text_ex(line, panel_x + 10.0, panel_y + 60.0 + i as f32 * 25.0, TextParams {
+
+    // 显示当前节点文本
+    draw_text_ex(&node.text, panel_x + 10.0, panel_y + 60.0, TextParams {
+        font: Some(font),
+        font_size: 18,
+        color: WHITE,
+        ..Default::default()
+    });
+
+    // 显示所有选项，高亮选中的选项
+    for (i, opt) in node.options.iter().enumerate() {
+        let y = panel_y + 100.0 + i as f32 * 28.0;
+        let color = if i == selected { YELLOW } else { GRAY };
+        let prefix = if i == selected { "> " } else { "  " };
+        draw_text_ex(&format!("{}{}", prefix, opt.text), panel_x + 30.0, y, TextParams {
             font: Some(font),
             font_size: 18,
-            color: WHITE,
+            color,
             ..Default::default()
         });
     }
-    
-    // 绘制继续提示
-    draw_text_ex("Press SPACE to continue", panel_x + 10.0, panel_y + panel_h - 20.0, TextParams {
+
+    // 绘制提示
+    draw_text_ex("↑↓选择，回车/空格确认，ESC退出", panel_x + 10.0, panel_y + panel_h - 20.0, TextParams {
         font: Some(font),
         font_size: 16,
         color: DARKGRAY,
@@ -1001,10 +1112,37 @@ async fn main() {
                 }
             }
             
-            // 对话状态：处理继续/退出对话
-            GameState::Dialogue(_) => {
-                // 空格键或ESC键结束对话
-                if is_key_pressed(KeyCode::Space) || is_key_pressed(KeyCode::Escape) {
+            // 对话状态：处理选项选择和跳转
+            GameState::Dialogue(npc_idx, node_idx, selected) => {
+                let npc = &game.npcs[npc_idx];
+                let node = &npc.dialogue[node_idx];
+                let num_options = node.options.len();
+                
+                // 上下键选择选项
+                if is_key_pressed(KeyCode::Up) || is_key_pressed(KeyCode::W) {
+                    if selected > 0 {
+                        game.state = GameState::Dialogue(npc_idx, node_idx, selected - 1);
+                    }
+                }
+                if is_key_pressed(KeyCode::Down) || is_key_pressed(KeyCode::S) {
+                    if selected + 1 < num_options {
+                        game.state = GameState::Dialogue(npc_idx, node_idx, selected + 1);
+                    }
+                }
+                
+                // 空格键或回车确认选择
+                if is_key_pressed(KeyCode::Space) || is_key_pressed(KeyCode::Enter) {
+                    if let Some(next) = node.options[selected].next_node {
+                        // 跳转到下一个节点
+                        game.state = GameState::Dialogue(npc_idx, next, 0);
+                    } else {
+                        // 结束对话
+                        game.state = GameState::Playing;
+                    }
+                }
+                
+                // ESC键退出对话
+                if is_key_pressed(KeyCode::Escape) {
                     game.state = GameState::Playing;
                 }
             }
@@ -1053,7 +1191,7 @@ async fn main() {
         // 根据当前状态绘制额外的界面
         match game.state {
             GameState::Inventory => draw_inventory(&game, &font),         // 背包界面
-            GameState::Dialogue(idx) => draw_dialogue(&game, idx, &font), // 对话界面
+            GameState::Dialogue(npc_idx, node_idx, selected) => draw_dialogue(&game, npc_idx, node_idx, selected, &font), // 对话界面
             GameState::Combat(idx) => draw_combat(&game, idx, &font),     // 战斗界面
             _ => {}  // Playing 状态不需要额外界面
         }

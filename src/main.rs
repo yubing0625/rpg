@@ -1,3 +1,37 @@
+//! # Fallout-style RPG Game
+//! 
+//! A roguelike RPG game inspired by Fallout series, featuring:
+//! - **West of Loathing dialogue system** - Branching conversation trees with multiple choices
+//! - **Turn-based combat** - Strategic combat with attack/defend/run options
+//! - **World exploration** - Navigate between world map, towns, and dungeons
+//! - **Inventory system** - Collect and manage items
+//! - **ASCII graphics** - Classic roguelike visual style using text characters
+//! 
+//! ## Game Structure
+//! 
+//! The game consists of three map types:
+//! - **World Map**: Large overworld with towns and dungeon entrances
+//! - **Towns**: Safe areas with friendly NPCs and merchants
+//! - **Dungeons**: Dangerous areas with hostile enemies
+//! 
+//! ## Core Systems
+//! 
+//! - **Rendering System**: ASCII-based tile rendering with camera following
+//! - **Dialogue System**: Node-based branching conversations
+//! - **Combat System**: Turn-based combat with damage calculation
+//! - **Map System**: Procedural map generation for different area types
+//! - **Input System**: Keyboard controls for movement and interaction
+//! 
+//! ## Technology Stack
+//! 
+//! Built with [macroquad](https://macroquad.rs/) - a simple and easy-to-use game library for Rust
+//! 
+//! ## Game States
+//! 
+//! - **Playing**: Normal exploration and movement
+//! - **Inventory**: Item management interface
+//! - **Dialogue**: Conversation with NPCs
+//! - **Combat**: Turn-based battle with enemies
 
 // Import macroquad game engine core functionality
 // Includes graphics rendering, input handling, color definitions, etc.
@@ -702,7 +736,7 @@ impl Game {
 // ========== Rendering System ==========
 
 /// Draw main game interface (map, items, NPCs, player)
-fn draw_game(game: &Game, font: &Font) {
+fn draw_game(game: &Game) {
     let tile_size = 20.0;   // Pixel size of each tile
     let start_x = 20.0;     // Map drawing start X coordinate
     let start_y = 40.0;     // Map drawing start Y coordinate
@@ -742,7 +776,7 @@ fn draw_game(game: &Game, font: &Font) {
                 screen_x + 5.0,
                 screen_y + 15.0,
                 TextParams {
-                    font: Some(font),
+                    font: None,
                     font_size: 20,
                     color: WHITE,
                     ..Default::default()
@@ -763,7 +797,7 @@ fn draw_game(game: &Game, font: &Font) {
             screen_x + 5.0,
             screen_y + 15.0,
             TextParams {
-                font: Some(font),
+                font: None,
                 font_size: 20,
                 color: YELLOW,
                 ..Default::default()
@@ -786,7 +820,7 @@ fn draw_game(game: &Game, font: &Font) {
             screen_x + 5.0,
             screen_y + 15.0,
             TextParams {
-                font: Some(font),
+                font: None,
                 font_size: 20,
                 color,
                 ..Default::default()
@@ -802,7 +836,7 @@ fn draw_game(game: &Game, font: &Font) {
         player_screen_x + 5.0,
         player_screen_y + 15.0,
         TextParams {
-            font: Some(font),
+            font: None,
             font_size: 20,
             color: SKYBLUE,
             ..Default::default()
@@ -811,7 +845,7 @@ fn draw_game(game: &Game, font: &Font) {
 }
 
 /// Draw user interface (status bar, message log, control hints)
-fn draw_ui(game: &Game, font: &Font) {
+fn draw_ui(game: &Game) {
     // === Draw top status bar ===
     // Black background
     draw_rectangle(0.0, 0.0, screen_width(), 30.0, BLACK);
@@ -825,7 +859,7 @@ fn draw_ui(game: &Game, font: &Font) {
                  game.current_map.name),
         10.0, 20.0,
         TextParams {
-            font: Some(font),
+            font: None,
             font_size: 20,
             color: GREEN,
             ..Default::default()
@@ -844,7 +878,7 @@ fn draw_ui(game: &Game, font: &Font) {
             10.0, 
             log_y + 20.0 + i as f32 * 20.0,
             TextParams {
-                font: Some(font),
+                font: None,
                 font_size: 18,
                 color: LIGHTGRAY,
                 ..Default::default()
@@ -863,7 +897,7 @@ fn draw_ui(game: &Game, font: &Font) {
         10.0, 
         screen_height() - 10.0,
         TextParams {
-            font: Some(font),
+            font: None,
             font_size: 16,
             color: DARKGRAY,
             ..Default::default()
@@ -872,7 +906,7 @@ fn draw_ui(game: &Game, font: &Font) {
 }
 
 /// Draw inventory interface
-fn draw_inventory(game: &Game, font: &Font) {
+fn draw_inventory(game: &Game) {
     // Calculate centered panel position
     let panel_w = 400.0;
     let panel_h = 300.0;
@@ -885,7 +919,7 @@ fn draw_inventory(game: &Game, font: &Font) {
     
     // Draw title
     draw_text_ex("INVENTORY", panel_x + 10.0, panel_y + 30.0, TextParams {
-        font: Some(font),
+        font: None,
         font_size: 24,
         color: YELLOW,
         ..Default::default()
@@ -894,7 +928,7 @@ fn draw_inventory(game: &Game, font: &Font) {
     // Display inventory contents
     if game.player.inventory.is_empty() {
         draw_text_ex("Empty", panel_x + 10.0, panel_y + 60.0, TextParams {
-            font: Some(font),
+            font: None,
             font_size: 20,
             color: GRAY,
             ..Default::default()
@@ -907,7 +941,7 @@ fn draw_inventory(game: &Game, font: &Font) {
                 panel_x + 10.0,
                 panel_y + 60.0 + i as f32 * 25.0,
                 TextParams {
-                    font: Some(font),
+                    font: None,
                     font_size: 20,
                     color: WHITE,
                     ..Default::default()
@@ -918,7 +952,7 @@ fn draw_inventory(game: &Game, font: &Font) {
     
     // Draw close hint
     draw_text_ex("Press I to close", panel_x + 10.0, panel_y + panel_h - 20.0, TextParams {
-        font: Some(font),
+        font: None,
         font_size: 16,
         color: DARKGRAY,
         ..Default::default()
@@ -927,7 +961,7 @@ fn draw_inventory(game: &Game, font: &Font) {
 
 /// Draw dialogue interface
 /// Draw branching dialogue interface (West of Loathing style)
-fn draw_dialogue(game: &Game, npc_idx: usize, node_idx: usize, selected: usize, font: &Font) {
+fn draw_dialogue(game: &Game, npc_idx: usize, node_idx: usize, selected: usize) {
     // Calculate dialogue box position (bottom of screen)
     let panel_w = 500.0;
     let panel_h = 200.0;
@@ -946,7 +980,7 @@ fn draw_dialogue(game: &Game, npc_idx: usize, node_idx: usize, selected: usize, 
 
     // Display NPC name
     draw_text_ex(&npc.name, panel_x + 10.0, panel_y + 30.0, TextParams {
-        font: Some(font),
+        font: None,
         font_size: 22,
         color: GREEN,
         ..Default::default()
@@ -954,7 +988,7 @@ fn draw_dialogue(game: &Game, npc_idx: usize, node_idx: usize, selected: usize, 
 
     // Display current node text
     draw_text_ex(&node.text, panel_x + 10.0, panel_y + 60.0, TextParams {
-        font: Some(font),
+        font: None,
         font_size: 18,
         color: WHITE,
         ..Default::default()
@@ -966,7 +1000,7 @@ fn draw_dialogue(game: &Game, npc_idx: usize, node_idx: usize, selected: usize, 
         let color = if i == selected { YELLOW } else { GRAY };
         let prefix = if i == selected { "> " } else { "  " };
         draw_text_ex(&format!("{}{}", prefix, opt.text), panel_x + 30.0, y, TextParams {
-            font: Some(font),
+            font: None,
             font_size: 18,
             color,
             ..Default::default()
@@ -975,7 +1009,7 @@ fn draw_dialogue(game: &Game, npc_idx: usize, node_idx: usize, selected: usize, 
 
     // Draw hint
     draw_text_ex("↑↓Select, Enter/Space Confirm, ESC Exit", panel_x + 10.0, panel_y + panel_h - 20.0, TextParams {
-        font: Some(font),
+        font: None,
         font_size: 16,
         color: DARKGRAY,
         ..Default::default()
@@ -983,7 +1017,7 @@ fn draw_dialogue(game: &Game, npc_idx: usize, node_idx: usize, selected: usize, 
 }
 
 /// Draw combat interface
-fn draw_combat(game: &Game, npc_idx: usize, font: &Font) {
+fn draw_combat(game: &Game, npc_idx: usize) {
     // Calculate centered combat panel position
     let panel_w = 500.0;
     let panel_h = 250.0;
@@ -999,7 +1033,7 @@ fn draw_combat(game: &Game, npc_idx: usize, font: &Font) {
     
     // Display combat title
     draw_text_ex("COMBAT", panel_x + 10.0, panel_y + 30.0, TextParams {
-        font: Some(font),
+        font: None,
         font_size: 24,
         color: RED,
         ..Default::default()
@@ -1007,14 +1041,14 @@ fn draw_combat(game: &Game, npc_idx: usize, font: &Font) {
     
     // Display enemy information
     draw_text_ex(&format!("Enemy: {}", npc.name), panel_x + 10.0, panel_y + 60.0, TextParams {
-        font: Some(font),
+        font: None,
         font_size: 20,
         color: ORANGE,
         ..Default::default()
     });
     draw_text_ex(&format!("Enemy HP: {}/{}", npc.hp, npc.max_hp), 
               panel_x + 10.0, panel_y + 85.0, TextParams {
-        font: Some(font),
+        font: None,
         font_size: 18,
         color: WHITE,
         ..Default::default()
@@ -1023,7 +1057,7 @@ fn draw_combat(game: &Game, npc_idx: usize, font: &Font) {
     // Display player information
     draw_text_ex(&format!("Your HP: {}/{}", game.player.hp, game.player.max_hp), 
               panel_x + 10.0, panel_y + 110.0, TextParams {
-        font: Some(font),
+        font: None,
         font_size: 18,
         color: WHITE,
         ..Default::default()
@@ -1031,19 +1065,19 @@ fn draw_combat(game: &Game, npc_idx: usize, font: &Font) {
     
     // Display combat options
     draw_text_ex("1: Attack", panel_x + 10.0, panel_y + 150.0, TextParams {
-        font: Some(font),
+        font: None,
         font_size: 18,
         color: YELLOW,
         ..Default::default()
     });
     draw_text_ex("2: Use Item", panel_x + 10.0, panel_y + 175.0, TextParams {
-        font: Some(font),
+        font: None,
         font_size: 18,
         color: YELLOW,
         ..Default::default()
     });
     draw_text_ex("3: Run", panel_x + 10.0, panel_y + 200.0, TextParams {
-        font: Some(font),
+        font: None,
         font_size: 18,
         color: YELLOW,
         ..Default::default()
@@ -1056,11 +1090,6 @@ fn draw_combat(game: &Game, npc_idx: usize, font: &Font) {
 /// macroquad::main macro handles window creation and event loop
 #[macroquad::main("Fallout-style RPG")]
 async fn main() {
-    // Load custom font
-    let font = load_ttf_font("assets/fonts/JetBrainsMonoNL-Regular.ttf")
-        .await
-        .expect("Failed to load font");
-    
     // Create game instance
     let mut game = Game::new();
 
@@ -1183,16 +1212,16 @@ async fn main() {
         
         // ========== Rendering ==========
         // Draw main game interface (map, NPCs, player)
-        draw_game(&game, &font);
+        draw_game(&game);
         
         // Draw UI elements (status bar, message log)
-        draw_ui(&game, &font);
+        draw_ui(&game);
         
         // Draw additional interfaces based on current state
         match game.state {
-            GameState::Inventory => draw_inventory(&game, &font),         // Inventory interface
-            GameState::Dialogue(npc_idx, node_idx, selected) => draw_dialogue(&game, npc_idx, node_idx, selected, &font), // Dialogue interface
-            GameState::Combat(idx) => draw_combat(&game, idx, &font),     // Combat interface
+            GameState::Inventory => draw_inventory(&game),         // Inventory interface
+            GameState::Dialogue(npc_idx, node_idx, selected) => draw_dialogue(&game, npc_idx, node_idx, selected), // Dialogue interface
+            GameState::Combat(idx) => draw_combat(&game, idx),     // Combat interface
             _ => {}  // Playing state doesn't need extra interfaces
         }
         

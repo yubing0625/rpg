@@ -1,56 +1,56 @@
 
-// 导入 macroquad 游戏引擎的核心功能
-// 包含图形渲染、输入处理、颜色定义等
+// Import macroquad game engine core functionality
+// Includes graphics rendering, input handling, color definitions, etc.
 use macroquad::prelude::*;
 
-// 导入 HashMap 用于存储地图上的物品位置
+// Import HashMap for storing item positions on the map
 use std::collections::HashMap;
 
-// ========== 核心数据结构 ==========
+// ========== Core Data Structures ==========
 
-/// 地砖类型枚举
-/// 定义游戏世界中所有可能的地形类型
+/// Tile type enumeration
+/// Defines all possible terrain types in the game world
 #[derive(Clone, Copy, PartialEq)]
 enum TileType {
-    Floor,     // 地板 - 可通行
-    Wall,      // 墙壁 - 不可通行
-    Door,      // 门 - 可通行
-    Water,     // 水域 - 不可通行
-    Grass,     // 草地 - 可通行（大地图）
-    Mountain,  // 山脉 - 不可通行（大地图）
-    Forest,    // 森林 - 可通行（大地图）
-    Town,      // 城镇入口 - 可进入
-    Dungeon,   // 地牢入口 - 可进入
+    Floor,     // Floor - walkable
+    Wall,      // Wall - not walkable
+    Door,      // Door - walkable
+    Water,     // Water - not walkable
+    Grass,     // Grass - walkable (world map)
+    Mountain,  // Mountain - not walkable (world map)
+    Forest,    // Forest - walkable (world map)
+    Town,      // Town entrance - enterable
+    Dungeon,   // Dungeon entrance - enterable
 }
 
-/// 地图类型枚举
-/// 区分大地图和小地图（城镇/地牢）
+/// Map type enumeration
+/// Distinguishes between world map and small maps (towns/dungeons)
 #[derive(Clone, Copy, PartialEq)]
 enum MapType {
-    WorldMap,   // 大地图
-    Town,       // 城镇
-    Dungeon,    // 地牢
+    WorldMap,   // World map
+    Town,       // Town
+    Dungeon,    // Dungeon
 }
 
 impl TileType {
-    /// 将地砖类型转换为对应的UTF-8字符表示
-    /// 使用标准 Roguelike 字符风格
+    /// Convert tile type to corresponding UTF-8 character representation
+    /// Uses standard Roguelike character style
     fn as_char(&self) -> &str {
         match self {
-            TileType::Floor => ".",      // 地板用点表示
-            TileType::Wall => "#",       // 墙壁用井号表示
-            TileType::Door => "+",       // 门用加号表示
-            TileType::Water => "~",      // 水域用波浪号表示
-            TileType::Grass => "\"",     // 草地用双引号表示
-            TileType::Mountain => "^",   // 山脉用尖号表示
-            TileType::Forest => "&",     // 森林用黑桃表示
-            TileType::Town => "※",      // 城镇用米字表示
-            TileType::Dungeon => "▼",    // 地牢用三角表示
+            TileType::Floor => ".",      // Floor represented by dot
+            TileType::Wall => "#",       // Wall represented by hash
+            TileType::Door => "+",       // Door represented by plus
+            TileType::Water => "~",      // Water represented by tilde
+            TileType::Grass => "\"",     // Grass represented by quote
+            TileType::Mountain => "^",   // Mountain represented by caret
+            TileType::Forest => "&",     // Forest represented by ampersand
+            TileType::Town => "※",      // Town represented by asterisk
+            TileType::Dungeon => "▼",    // Dungeon represented by triangle
         }
     }
     
-    /// 判断该地砖类型是否可以行走
-    /// 返回 true 表示玩家可以通过该地砖
+    /// Check if this tile type is walkable
+    /// Returns true if player can pass through this tile
     fn is_walkable(&self) -> bool {
         matches!(self, 
             TileType::Floor | 
@@ -62,124 +62,124 @@ impl TileType {
         )
     }
     
-    /// 判断是否为可进入的地点（城镇或地牢）
+    /// Check if this is an enterable location (town or dungeon)
     fn is_enterable(&self) -> bool {
         matches!(self, TileType::Town | TileType::Dungeon)
     }
 }
 
-/// 物品结构体
-/// 表示游戏中可以拾取的物品
+/// Item structure
+/// Represents items that can be picked up in the game
 #[derive(Clone)]
 struct Item {
-    name: String,      // 物品名称
-    char: &'static str, // 物品在地图上显示的字符
-    item_type: ItemType, // 物品类型（武器、护甲、消耗品等）
+    name: String,      // Item name
+    char: &'static str, // Character displayed on map
+    item_type: ItemType, // Item type (weapon, armor, consumable, etc.)
 }
 
-/// 物品类型枚举
-/// 定义不同种类的物品及其属性
+/// Item type enumeration
+/// Defines different kinds of items and their attributes
 #[derive(Clone)]
 enum ItemType {
-    Weapon { damage: i32 },      // 武器 - 附带伤害值
-    Armor { defense: i32 },      // 护甲 - 附带防御值
-    Consumable { heal: i32 },    // 消耗品 - 附带治疗值
-    Quest,                        // 任务物品
+    Weapon { damage: i32 },      // Weapon - with damage value
+    Armor { defense: i32 },      // Armor - with defense value
+    Consumable { heal: i32 },    // Consumable - with heal value
+    Quest,                        // Quest item
 }
 
-/// 对话选项结构体
+/// Dialogue option structure
 #[derive(Clone)]
 struct DialogueOption {
-    text: String,           // 选项文本
-    next_node: Option<usize>, // 跳转到的下一个节点（None 表示结束对话）
+    text: String,           // Option text
+    next_node: Option<usize>, // Next node to jump to (None means end dialogue)
 }
 
-/// 对话节点结构体
+/// Dialogue node structure
 #[derive(Clone)]
 struct DialogueNode {
-    text: String,                  // 当前节点的对话文本
-    options: Vec<DialogueOption>,  // 可选项
+    text: String,                  // Current node's dialogue text
+    options: Vec<DialogueOption>,  // Available options
 }
 
-/// NPC（非玩家角色）结构体
+/// NPC (Non-Player Character) structure
 #[derive(Clone)]
 struct NPC {
-    name: String,           // NPC名称
-    char: &'static str,     // NPC在地图上显示的字符
-    x: i32,                 // NPC的X坐标
-    y: i32,                 // NPC的Y坐标
-    hp: i32,                // 当前生命值
-    max_hp: i32,            // 最大生命值
-    hostile: bool,          // 是否敌对（true为敌人，false为友好）
-    dialogue: Vec<DialogueNode>,  // 分支对话树
+    name: String,           // NPC name
+    char: &'static str,     // Character displayed on map
+    x: i32,                 // NPC X coordinate
+    y: i32,                 // NPC Y coordinate
+    hp: i32,                // Current health
+    max_hp: i32,            // Maximum health
+    hostile: bool,          // Whether hostile (true = enemy, false = friendly)
+    dialogue: Vec<DialogueNode>,  // Branching dialogue tree
 }
 
-/// 玩家结构体
+/// Player structure
 struct Player {
-    x: i32,                      // 玩家的X坐标
-    y: i32,                      // 玩家的Y坐标
-    hp: i32,                     // 当前生命值
-    max_hp: i32,                 // 最大生命值
-    inventory: Vec<Item>,        // 背包物品列表
-    stats: PlayerStats,          // 玩家属性点
+    x: i32,                      // Player X coordinate
+    y: i32,                      // Player Y coordinate
+    hp: i32,                     // Current health
+    max_hp: i32,                 // Maximum health
+    inventory: Vec<Item>,        // Inventory item list
+    stats: PlayerStats,          // Player attributes
 }
 
-/// 玩家属性结构体
-/// 模仿辐射系列的SPECIAL系统
+/// Player stats structure
+/// Mimics Fallout series SPECIAL system
 struct PlayerStats {
-    strength: i32,      // 力量 - 影响近战伤害和负重
-    perception: i32,    // 感知 - 影响远程精准度
-    endurance: i32,     // 耐力 - 影响生命值和抗性
-    charisma: i32,      // 魅力 - 影响对话选项
-    intelligence: i32,  // 智力 - 影响技能点
-    agility: i32,       // 敏捷 - 影响行动点数
-    luck: i32,          // 幸运 - 影响暴击率
+    strength: i32,      // Strength - affects melee damage and carry weight
+    perception: i32,    // Perception - affects ranged accuracy
+    endurance: i32,     // Endurance - affects health and resistance
+    charisma: i32,      // Charisma - affects dialogue options
+    intelligence: i32,  // Intelligence - affects skill points
+    agility: i32,       // Agility - affects action points
+    luck: i32,          // Luck - affects critical hit rate
 }
 
-/// 游戏地图结构体
+/// Game map structure
 #[derive(Clone)]
 struct GameMap {
-    width: i32,                          // 地图宽度
-    height: i32,                         // 地图高度
-    tiles: Vec<Vec<TileType>>,           // 二维地砖数组
-    items: HashMap<(i32, i32), Item>,    // 物品位置映射表 (坐标 -> 物品)
-    map_type: MapType,                   // 地图类型
-    name: String,                        // 地图名称
+    width: i32,                          // Map width
+    height: i32,                         // Map height
+    tiles: Vec<Vec<TileType>>,           // 2D tile array
+    items: HashMap<(i32, i32), Item>,    // Item position mapping (coordinates -> item)
+    map_type: MapType,                   // Map type
+    name: String,                        // Map name
 }
 
 impl GameMap {
-    /// 创建世界大地图
+    /// Create world map
     fn new_world_map() -> Self {
         let width = 80;
         let height = 40;
         let mut tiles = vec![vec![TileType::Grass; width as usize]; height as usize];
         
-        // 添加山脉
+        // Add mountains
         for y in 5..10 {
             for x in 20..30 {
                 tiles[y][x] = TileType::Mountain;
             }
         }
         
-        // 添加森林
+        // Add forests
         for y in 15..25 {
             for x in 10..20 {
                 tiles[y][x] = TileType::Forest;
             }
         }
         
-        // 添加水域
+        // Add water
         for y in 30..35 {
             for x in 40..60 {
                 tiles[y][x] = TileType::Water;
             }
         }
         
-        // 放置城镇入口
+        // Place town entrances
         tiles[10][15] = TileType::Town;
         tiles[25][50] = TileType::Town;
         
-        // 放置地牢入口
+        // Place dungeon entrances
         tiles[8][40] = TileType::Dungeon;
         tiles[30][25] = TileType::Dungeon;
         
@@ -193,13 +193,13 @@ impl GameMap {
         }
     }
     
-    /// 创建城镇地图
+    /// Create town map
     fn new_town_map(town_id: usize) -> Self {
         let width = 40;
         let height = 30;
         let mut tiles = vec![vec![TileType::Floor; width as usize]; height as usize];
         
-        // 创建边界墙
+        // Create boundary walls
         for y in 0..height {
             for x in 0..width {
                 if x == 0 || x == width - 1 || y == 0 || y == height - 1 {
@@ -208,13 +208,13 @@ impl GameMap {
             }
         }
         
-        // 创建建筑物（房间）
+        // Create buildings (rooms)
         for x in 5..15 {
             for y in 5..12 {
                 tiles[y][x] = TileType::Wall;
             }
         }
-        tiles[8][10] = TileType::Door;  // 门
+        tiles[8][10] = TileType::Door;  // Door
         
         for x in 20..30 {
             for y in 15..22 {
@@ -223,7 +223,7 @@ impl GameMap {
         }
         tiles[18][25] = TileType::Door;
         
-        // 添加一些装饰性水域（井或喷泉）
+        // Add decorative water (well or fountain)
         tiles[15][10] = TileType::Water;
         
         let mut items = HashMap::new();
@@ -243,13 +243,13 @@ impl GameMap {
         }
     }
     
-    /// 创建地牢地图
+    /// Create dungeon map
     fn new_dungeon_map(dungeon_id: usize) -> Self {
         let width = 40;
         let height = 30;
         let mut tiles = vec![vec![TileType::Floor; width as usize]; height as usize];
         
-        // 创建迷宫般的地牢布局
+        // Create maze-like dungeon layout
         for y in 0..height {
             for x in 0..width {
                 if x == 0 || x == width - 1 || y == 0 || y == height - 1 {
@@ -258,7 +258,7 @@ impl GameMap {
             }
         }
         
-        // 添加内部墙壁创建走廊
+        // Add interior walls to create corridors
         for x in 10..15 {
             tiles[5][x] = TileType::Wall;
         }
@@ -269,7 +269,7 @@ impl GameMap {
         }
         tiles[15][20] = TileType::Door;
         
-        // 添加水域/岩浆
+        // Add water/lava
         for x in 25..30 {
             for y in 8..12 {
                 tiles[y][x] = TileType::Water;
@@ -293,72 +293,72 @@ impl GameMap {
         }
     }
     
-    /// 检查指定坐标是否可以行走
+    /// Check if the specified coordinates are walkable
     /// 
-    /// # 参数
-    /// * `x` - X坐标
-    /// * `y` - Y坐标
+    /// # Arguments
+    /// * `x` - X coordinate
+    /// * `y` - Y coordinate
     /// 
-    /// # 返回
-    /// true 表示该位置可以行走，false 表示不可行走（墙壁、水域或超出边界）
+    /// # Returns
+    /// true if the position is walkable, false if not (wall, water, or out of bounds)
     fn is_walkable(&self, x: i32, y: i32) -> bool {
-        // 检查坐标是否在地图范围内
+        // Check if coordinates are within map bounds
         if x < 0 || x >= self.width || y < 0 || y >= self.height {
             return false;
         }
-        // 检查该位置的地砖类型是否可通行
+        // Check if the tile type at this position is passable
         self.tiles[y as usize][x as usize].is_walkable()
     }
 }
 
-/// 游戏状态枚举
-/// 定义游戏当前处于哪种模式
+/// Game state enumeration
+/// Defines which mode the game is currently in
 enum GameState {
-    Playing,           // 正常游玩状态（移动、探索）
-    Inventory,         // 背包界面
-    Dialogue(usize, usize, usize),   // 对话状态（NPC索引，当前节点索引，选中的选项索引）
-    Combat(usize),     // 战斗状态（参数是敌人NPC的索引）
+    Playing,           // Normal gameplay state (movement, exploration)
+    Inventory,         // Inventory interface
+    Dialogue(usize, usize, usize),   // Dialogue state (NPC index, current node index, selected option index)
+    Combat(usize),     // Combat state (enemy NPC index)
 }
 
-/// 地图位置记录
-/// 用于在不同地图间切换时保存玩家位置
+/// Map location record
+/// Used to save player position when switching between maps
 #[derive(Clone)]
 struct MapLocation {
-    map_type: MapType,   // 地图类型
-    map_id: usize,       // 地图ID（用于区分不同的城镇/地牢）
-    x: i32,              // 进入时的X坐标
-    y: i32,              // 进入时的Y坐标
+    map_type: MapType,   // Map type
+    map_id: usize,       // Map ID (to distinguish different towns/dungeons)
+    x: i32,              // X coordinate when entering
+    y: i32,              // Y coordinate when entering
 }
 
-/// 游戏主结构体
-/// 包含所有游戏数据和状态
+/// Main game structure
+/// Contains all game data and state
 struct Game {
-    player: Player,              // 玩家数据
-    current_map: GameMap,        // 当前地图
-    world_map: GameMap,          // 世界大地图（缓存）
-    town_maps: Vec<GameMap>,     // 城镇地图列表
-    dungeon_maps: Vec<GameMap>,  // 地牢地图列表
-    npcs: Vec<NPC>,              // 当前地图的NPC列表
-    state: GameState,            // 当前游戏状态
-    messages: Vec<String>,       // 消息日志（最多显示5条）
-    camera_x: i32,               // 摄像机X坐标（用于地图滚动）
-    camera_y: i32,               // 摄像机Y坐标（用于地图滚动）
-    previous_location: Option<MapLocation>,  // 进入小地图前的位置
+    player: Player,              // Player data
+    current_map: GameMap,        // Current map
+    world_map: GameMap,          // World map (cached)
+    town_maps: Vec<GameMap>,     // Town map list
+    dungeon_maps: Vec<GameMap>,  // Dungeon map list
+    npcs: Vec<NPC>,              // NPC list for current map
+    state: GameState,            // Current game state
+    messages: Vec<String>,       // Message log (max 5 messages)
+    camera_x: i32,               // Camera X coordinate (for map scrolling)
+    camera_y: i32,               // Camera Y coordinate (for map scrolling)
+    previous_location: Option<MapLocation>,  // Position before entering small map
 }
 
 impl Game {
-    /// 创建新游戏实例
-    /// 初始化玩家、地图、NPC等所有游戏元素
+    /// Create new game instance
+    /// Initialize player, maps, NPCs and all game elements
     fn new() -> Self {
-        // 创建玩家角色，初始位置在世界地图 (40, 20)
+        // Create player character, initial position at world map (40, 20)
         let player = Player {
             x: 40,
             y: 20,
             hp: 100,
             max_hp: 100,
-            inventory: vec![],  // 初始背包为空
+            inventory: vec![],  // Initial inventory is empty
             stats: PlayerStats {
-                // 初始属性点均为5
+                // Initial stat points all set to 5
                 strength: 5,
                 perception: 5,
                 endurance: 5,
@@ -369,25 +369,25 @@ impl Game {
             },
         };
         
-        // 创建世界大地图
+        // Create world map
         let world_map = GameMap::new_world_map();
         
-        // 预生成城镇地图
+        // Pre-generate town maps
         let town_maps = vec![
             GameMap::new_town_map(0),
             GameMap::new_town_map(1),
         ];
         
-        // 预生成地牢地图
+        // Pre-generate dungeon maps
         let dungeon_maps = vec![
             GameMap::new_dungeon_map(0),
             GameMap::new_dungeon_map(1),
         ];
         
-        // 当前地图初始为世界地图
+        // Current map initially is world map
         let current_map = world_map.clone();
         
-        // 创建NPC列表（世界地图上的NPC）
+        // Create NPC list (NPCs on world map)
         let npcs = vec![
             NPC {
                 name: "Traveling Merchant".to_string(),
@@ -437,56 +437,56 @@ impl Game {
         }
     }
     
-    /// 添加消息到消息日志
-    /// 如果消息超过5条，自动删除最旧的消息
+    /// Add message to message log
+    /// Automatically removes oldest message if exceeds 5 messages
     fn add_message(&mut self, msg: String) {
         self.messages.push(msg);
         if self.messages.len() > 5 {
-            self.messages.remove(0);  // 删除第一条（最旧的）消息
+            self.messages.remove(0);  // Remove first (oldest) message
         }
     }
     
-    /// 移动玩家
+    /// Move player
     /// 
-    /// # 参数
-    /// * `dx` - X轴移动增量（-1左移，1右移）
-    /// * `dy` - Y轴移动增量（-1上移，1下移）
+    /// # Arguments
+    /// * `dx` - X axis movement delta (-1 left, 1 right)
+    /// * `dy` - Y axis movement delta (-1 up, 1 down)
     fn move_player(&mut self, dx: i32, dy: i32) {
         let new_x = self.player.x + dx;
         let new_y = self.player.y + dy;
         
-        // 检查目标位置是否有NPC
+        // Check if there's an NPC at target position
         if let Some(npc_idx) = self.npcs.iter().position(|n| n.x == new_x && n.y == new_y) {
-            // 根据NPC的敌对性决定触发战斗还是对话
+            // Trigger combat or dialogue based on NPC hostility
             if self.npcs[npc_idx].hostile {
                 self.state = GameState::Combat(npc_idx);
                 self.add_message(format!("Combat with {}!", self.npcs[npc_idx].name));
             } else {
-                self.state = GameState::Dialogue(npc_idx, 0, 0); // 从第0个节点开始，选中第0个选项
+                self.state = GameState::Dialogue(npc_idx, 0, 0); // Start from node 0, option 0 selected
             }
-            return;  // 不移动玩家位置
+            return;  // Don't move player position
         }
         
-        // 检查地图碰撞（墙壁、水域等）
+        // Check map collision (walls, water, etc.)
         if self.current_map.is_walkable(new_x, new_y) {
-            // 更新玩家位置
+            // Update player position
             self.player.x = new_x;
             self.player.y = new_y;
             
-            // 检查是否有物品可以拾取
+            // Check if there's an item to pick up
             if let Some(item) = self.current_map.items.remove(&(new_x, new_y)) {
                 self.add_message(format!("Picked up {}", item.name));
-                self.player.inventory.push(item);  // 将物品添加到背包
+                self.player.inventory.push(item);  // Add item to inventory
             }
         }
     }
     
-    /// 尝试进入城镇或地牢
+    /// Try to enter town or dungeon
     fn try_enter_location(&mut self) {
         let x = self.player.x;
         let y = self.player.y;
         
-        // 只能在世界地图上进入城镇/地牢
+        // Can only enter towns/dungeons from world map
         if self.current_map.map_type != MapType::WorldMap {
             return;
         }
@@ -496,7 +496,7 @@ impl Game {
             return;
         }
         
-        // 保存当前位置
+        // Save current position
         self.previous_location = Some(MapLocation {
             map_type: MapType::WorldMap,
             map_id: 0,
@@ -504,10 +504,10 @@ impl Game {
             y,
         });
         
-        // 根据地砖类型进入不同的地图
+        // Enter different maps based on tile type
         match tile {
             TileType::Town => {
-                // 根据位置确定进入哪个城镇
+                // Determine which town to enter based on position
                 let town_id = if (x, y) == (15, 10) { 0 } else { 1 };
                 self.current_map = self.town_maps[town_id].clone();
                 self.player.x = 20;
@@ -516,7 +516,7 @@ impl Game {
                 self.add_message(format!("Entered {}", self.current_map.name));
             }
             TileType::Dungeon => {
-                // 根据位置确定进入哪个地牢
+                // Determine which dungeon to enter based on position
                 let dungeon_id = if (x, y) == (40, 8) { 0 } else { 1 };
                 self.current_map = self.dungeon_maps[dungeon_id].clone();
                 self.player.x = 5;
@@ -528,10 +528,10 @@ impl Game {
         }
     }
     
-    /// 返回世界地图
+    /// Return to world map
     fn return_to_world_map(&mut self) {
         if self.current_map.map_type == MapType::WorldMap {
-            return;  // 已经在世界地图上
+            return;  // Already on world map
         }
         
         if let Some(prev_loc) = &self.previous_location {
@@ -540,13 +540,13 @@ impl Game {
             self.player.y = prev_loc.y;
             self.previous_location = None;
             
-            // 加载世界地图NPC
+            // Load world map NPCs
             self.load_world_npcs();
             self.add_message("Returned to world map".to_string());
         }
     }
     
-    /// 加载世界地图NPC
+    /// Load world map NPCs
     fn load_world_npcs(&mut self) {
         self.npcs = vec![
             NPC {
@@ -583,7 +583,7 @@ impl Game {
         ];
     }
     
-    /// 加载城镇NPC
+    /// Load town NPCs
     fn load_town_npcs(&mut self, _town_id: usize) {
         self.npcs = vec![
             NPC {
@@ -649,7 +649,7 @@ impl Game {
         ];
     }
     
-    /// 加载地牢NPC（敌人）
+    /// Load dungeon NPCs (enemies)
     fn load_dungeon_npcs(&mut self, _dungeon_id: usize) {
         self.npcs = vec![
             NPC {
@@ -689,54 +689,54 @@ impl Game {
         ];
     }
     
-    /// 更新摄像机位置，使其跟随玩家
-    /// 摄像机会保持玩家在屏幕中央附近
+    /// Update camera position to follow player
+    /// Camera keeps player near center of screen
     fn update_camera(&mut self) {
-        // 将摄像机中心对准玩家位置
-        // 偏移量根据视野大小调整（20格宽，10格高）
+        // Center camera on player position
+        // Offset adjusted for viewport size (20 tiles wide, 10 tiles high)
         self.camera_x = self.player.x - 20;
         self.camera_y = self.player.y - 10;
     }
 }
 
-// ========== 渲染系统 ==========
+// ========== Rendering System ==========
 
-/// 绘制游戏主界面（地图、物品、NPC、玩家）
+/// Draw main game interface (map, items, NPCs, player)
 fn draw_game(game: &Game, font: &Font) {
-    let tile_size = 20.0;   // 每个格子的像素大小
-    let start_x = 20.0;     // 地图绘制的起始X坐标
-    let start_y = 40.0;     // 地图绘制的起始Y坐标
+    let tile_size = 20.0;   // Pixel size of each tile
+    let start_x = 20.0;     // Map drawing start X coordinate
+    let start_y = 40.0;     // Map drawing start Y coordinate
     
-    // 绘制地图的所有地砖
+    // Draw all map tiles
     for y in 0..game.current_map.height {
         for x in 0..game.current_map.width {
-            // 计算地砖在屏幕上的位置（考虑摄像机偏移）
+            // Calculate tile's screen position (accounting for camera offset)
             let screen_x = start_x + (x - game.camera_x) as f32 * tile_size;
             let screen_y = start_y + (y - game.camera_y) as f32 * tile_size;
             
-            // 如果地砖不在屏幕可见区域内，跳过绘制
+            // Skip drawing if tile is outside visible screen area
             if screen_x < 0.0 || screen_y < 0.0 || screen_x > screen_width() || screen_y > screen_height() {
                 continue;
             }
             
-            // 获取地砖类型并设置对应颜色
+            // Get tile type and set corresponding color
             let tile = game.current_map.tiles[y as usize][x as usize];
             let color = match tile {
-                TileType::Floor => DARKGRAY,     // 地板：深灰色
-                TileType::Wall => GRAY,          // 墙壁：灰色
-                TileType::Door => BROWN,         // 门：棕色
-                TileType::Water => BLUE,         // 水域：蓝色
-                TileType::Grass => DARKGREEN,    // 草地：深绿色
-                TileType::Mountain => LIGHTGRAY, // 山脉：浅灰色
-                TileType::Forest => GREEN,       // 森林：绿色
-                TileType::Town => ORANGE,        // 城镇：橙色
-                TileType::Dungeon => DARKPURPLE, // 地牢：深紫色
+                TileType::Floor => DARKGRAY,     // Floor: dark gray
+                TileType::Wall => GRAY,          // Wall: gray
+                TileType::Door => BROWN,         // Door: brown
+                TileType::Water => BLUE,         // Water: blue
+                TileType::Grass => DARKGREEN,    // Grass: dark green
+                TileType::Mountain => LIGHTGRAY, // Mountain: light gray
+                TileType::Forest => GREEN,       // Forest: green
+                TileType::Town => ORANGE,        // Town: orange
+                TileType::Dungeon => DARKPURPLE, // Dungeon: dark purple
             };
             
-            // 绘制地砖矩形背景
+            // Draw tile rectangle background
             draw_rectangle(screen_x, screen_y, tile_size, tile_size, color);
             
-            // 绘制地砖的ASCII字符
+            // Draw tile's ASCII character
             draw_text_ex(
                 tile.as_char(),
                 screen_x + 5.0,
@@ -751,13 +751,13 @@ fn draw_game(game: &Game, font: &Font) {
         }
     }
     
-    // 绘制地图上的物品
+    // Draw items on map
     for ((x, y), item) in &game.current_map.items {
-        // 计算物品在屏幕上的位置
+        // Calculate item's screen position
         let screen_x = start_x + (*x - game.camera_x) as f32 * tile_size;
         let screen_y = start_y + (*y - game.camera_y) as f32 * tile_size;
         
-        // 用黄色绘制物品字符
+        // Draw item character in yellow
         draw_text_ex(
             item.char,
             screen_x + 5.0,
@@ -771,16 +771,16 @@ fn draw_game(game: &Game, font: &Font) {
         );
     }
     
-    // 绘制所有NPC
+    // Draw all NPCs
     for npc in &game.npcs {
-        // 计算NPC在屏幕上的位置
+        // Calculate NPC's screen position
         let screen_x = start_x + (npc.x - game.camera_x) as f32 * tile_size;
         let screen_y = start_y + (npc.y - game.camera_y) as f32 * tile_size;
         
-        // 根据敌对性设置颜色：红色为敌人，绿色为友好
+        // Set color based on hostility: red for enemies, green for friendly
         let color = if npc.hostile { RED } else { GREEN };
         
-        // 绘制NPC字符
+        // Draw NPC character
         draw_text_ex(
             npc.char,
             screen_x + 5.0,
@@ -794,7 +794,7 @@ fn draw_game(game: &Game, font: &Font) {
         );
     }
     
-    // 绘制玩家角色（用 @ 符号表示）
+    // Draw player character (represented by @ symbol)
     let player_screen_x = start_x + (game.player.x - game.camera_x) as f32 * tile_size;
     let player_screen_y = start_y + (game.player.y - game.camera_y) as f32 * tile_size;
     draw_text_ex(
@@ -810,13 +810,13 @@ fn draw_game(game: &Game, font: &Font) {
     );
 }
 
-/// 绘制用户界面（状态栏、消息日志、控制提示）
+/// Draw user interface (status bar, message log, control hints)
 fn draw_ui(game: &Game, font: &Font) {
-    // === 绘制顶部状态栏 ===
-    // 黑色背景
+    // === Draw top status bar ===
+    // Black background
     draw_rectangle(0.0, 0.0, screen_width(), 30.0, BLACK);
     
-    // 显示玩家状态信息和当前地图
+    // Display player status info and current map
     draw_text_ex(
         &format!("HP: {}/{} | Pos: ({},{}) | Items: {} | Map: {}", 
                  game.player.hp, game.player.max_hp,
@@ -832,12 +832,12 @@ fn draw_ui(game: &Game, font: &Font) {
         }
     );
     
-    // === 绘制底部消息日志 ===
+    // === Draw bottom message log ===
     let log_y = screen_height() - 120.0;
-    // 半透明黑色背景
+    // Semi-transparent black background
     draw_rectangle(0.0, log_y, screen_width(), 120.0, Color::new(0.0, 0.0, 0.0, 0.8));
     
-    // 显示最近的5条消息
+    // Display most recent 5 messages
     for (i, msg) in game.messages.iter().enumerate() {
         draw_text_ex(
             msg, 
@@ -852,7 +852,7 @@ fn draw_ui(game: &Game, font: &Font) {
         );
     }
     
-    // === 绘制控制提示 ===
+    // === Draw control hints ===
     let controls = if game.current_map.map_type == MapType::WorldMap {
         "WASD/Arrow: Move | Space: Enter Town/Dungeon | I: Inventory"
     } else {
@@ -871,19 +871,19 @@ fn draw_ui(game: &Game, font: &Font) {
     );
 }
 
-/// 绘制背包界面
+/// Draw inventory interface
 fn draw_inventory(game: &Game, font: &Font) {
-    // 计算面板居中位置
+    // Calculate centered panel position
     let panel_w = 400.0;
     let panel_h = 300.0;
     let panel_x = (screen_width() - panel_w) / 2.0;
     let panel_y = (screen_height() - panel_h) / 2.0;
     
-    // 绘制面板背景和边框
+    // Draw panel background and border
     draw_rectangle(panel_x, panel_y, panel_w, panel_h, BLACK);
     draw_rectangle_lines(panel_x, panel_y, panel_w, panel_h, 2.0, WHITE);
     
-    // 绘制标题
+    // Draw title
     draw_text_ex("INVENTORY", panel_x + 10.0, panel_y + 30.0, TextParams {
         font: Some(font),
         font_size: 24,
@@ -891,7 +891,7 @@ fn draw_inventory(game: &Game, font: &Font) {
         ..Default::default()
     });
     
-    // 显示背包内容
+    // Display inventory contents
     if game.player.inventory.is_empty() {
         draw_text_ex("Empty", panel_x + 10.0, panel_y + 60.0, TextParams {
             font: Some(font),
@@ -900,7 +900,7 @@ fn draw_inventory(game: &Game, font: &Font) {
             ..Default::default()
         });
     } else {
-        // 列出所有物品
+        // List all items
         for (i, item) in game.player.inventory.iter().enumerate() {
             draw_text_ex(
                 &format!("{} - {}", item.char, item.name),
@@ -916,7 +916,7 @@ fn draw_inventory(game: &Game, font: &Font) {
         }
     }
     
-    // 绘制关闭提示
+    // Draw close hint
     draw_text_ex("Press I to close", panel_x + 10.0, panel_y + panel_h - 20.0, TextParams {
         font: Some(font),
         font_size: 16,
@@ -925,26 +925,26 @@ fn draw_inventory(game: &Game, font: &Font) {
     });
 }
 
-/// 绘制对话界面
-/// 绘制分支对话界面（West of Loathing风格）
+/// Draw dialogue interface
+/// Draw branching dialogue interface (West of Loathing style)
 fn draw_dialogue(game: &Game, npc_idx: usize, node_idx: usize, selected: usize, font: &Font) {
-    // 计算对话框位置（屏幕底部）
+    // Calculate dialogue box position (bottom of screen)
     let panel_w = 500.0;
     let panel_h = 200.0;
     let panel_x = (screen_width() - panel_w) / 2.0;
     let panel_y = screen_height() - panel_h - 50.0;
 
-    // 绘制对话框背景和边框
+    // Draw dialogue box background and border
     draw_rectangle(panel_x, panel_y, panel_w, panel_h, BLACK);
     draw_rectangle_lines(panel_x, panel_y, panel_w, panel_h, 2.0, GREEN);
 
-    // 获取NPC数据
+    // Get NPC data
     let npc = &game.npcs[npc_idx];
 
-    // 获取当前对话节点
+    // Get current dialogue node
     let node = &npc.dialogue[node_idx];
 
-    // 显示NPC名字
+    // Display NPC name
     draw_text_ex(&npc.name, panel_x + 10.0, panel_y + 30.0, TextParams {
         font: Some(font),
         font_size: 22,
@@ -952,7 +952,7 @@ fn draw_dialogue(game: &Game, npc_idx: usize, node_idx: usize, selected: usize, 
         ..Default::default()
     });
 
-    // 显示当前节点文本
+    // Display current node text
     draw_text_ex(&node.text, panel_x + 10.0, panel_y + 60.0, TextParams {
         font: Some(font),
         font_size: 18,
@@ -960,7 +960,7 @@ fn draw_dialogue(game: &Game, npc_idx: usize, node_idx: usize, selected: usize, 
         ..Default::default()
     });
 
-    // 显示所有选项，高亮选中的选项
+    // Display all options, highlight selected option
     for (i, opt) in node.options.iter().enumerate() {
         let y = panel_y + 100.0 + i as f32 * 28.0;
         let color = if i == selected { YELLOW } else { GRAY };
@@ -973,8 +973,8 @@ fn draw_dialogue(game: &Game, npc_idx: usize, node_idx: usize, selected: usize, 
         });
     }
 
-    // 绘制提示
-    draw_text_ex("↑↓选择，回车/空格确认，ESC退出", panel_x + 10.0, panel_y + panel_h - 20.0, TextParams {
+    // Draw hint
+    draw_text_ex("↑↓Select, Enter/Space Confirm, ESC Exit", panel_x + 10.0, panel_y + panel_h - 20.0, TextParams {
         font: Some(font),
         font_size: 16,
         color: DARKGRAY,
@@ -982,22 +982,22 @@ fn draw_dialogue(game: &Game, npc_idx: usize, node_idx: usize, selected: usize, 
     });
 }
 
-/// 绘制战斗界面
+/// Draw combat interface
 fn draw_combat(game: &Game, npc_idx: usize, font: &Font) {
-    // 计算战斗面板居中位置
+    // Calculate centered combat panel position
     let panel_w = 500.0;
     let panel_h = 250.0;
     let panel_x = (screen_width() - panel_w) / 2.0;
     let panel_y = (screen_height() - panel_h) / 2.0;
     
-    // 绘制战斗面板背景和边框（红色边框表示战斗）
+    // Draw combat panel background and border (red border indicates combat)
     draw_rectangle(panel_x, panel_y, panel_w, panel_h, BLACK);
     draw_rectangle_lines(panel_x, panel_y, panel_w, panel_h, 2.0, RED);
     
-    // 获取敌人数据
+    // Get enemy data
     let npc = &game.npcs[npc_idx];
     
-    // 显示战斗标题
+    // Display combat title
     draw_text_ex("COMBAT", panel_x + 10.0, panel_y + 30.0, TextParams {
         font: Some(font),
         font_size: 24,
@@ -1005,7 +1005,7 @@ fn draw_combat(game: &Game, npc_idx: usize, font: &Font) {
         ..Default::default()
     });
     
-    // 显示敌人信息
+    // Display enemy information
     draw_text_ex(&format!("Enemy: {}", npc.name), panel_x + 10.0, panel_y + 60.0, TextParams {
         font: Some(font),
         font_size: 20,
@@ -1020,7 +1020,7 @@ fn draw_combat(game: &Game, npc_idx: usize, font: &Font) {
         ..Default::default()
     });
     
-    // 显示玩家信息
+    // Display player information
     draw_text_ex(&format!("Your HP: {}/{}", game.player.hp, game.player.max_hp), 
               panel_x + 10.0, panel_y + 110.0, TextParams {
         font: Some(font),
@@ -1029,7 +1029,7 @@ fn draw_combat(game: &Game, npc_idx: usize, font: &Font) {
         ..Default::default()
     });
     
-    // 显示战斗选项
+    // Display combat options
     draw_text_ex("1: Attack", panel_x + 10.0, panel_y + 150.0, TextParams {
         font: Some(font),
         font_size: 18,
@@ -1050,75 +1050,75 @@ fn draw_combat(game: &Game, npc_idx: usize, font: &Font) {
     });
 }
 
-// ========== 主循环 ==========
+// ========== Main Loop ==========
 
-/// 游戏主循环
-/// macroquad::main 宏处理窗口创建和事件循环
+/// Game main loop
+/// macroquad::main macro handles window creation and event loop
 #[macroquad::main("Fallout-style RPG")]
 async fn main() {
-    // 加载自定义字体
+    // Load custom font
     let font = load_ttf_font("assets/fonts/JetBrainsMonoNL-Regular.ttf")
         .await
         .expect("Failed to load font");
     
-    // 创建游戏实例
+    // Create game instance
     let mut game = Game::new();
 
-    // 游戏主循环 - 每帧执行一次
+    // Game main loop - executes once per frame
     loop {
-        // 清空屏幕为黑色
+        // Clear screen to black
         clear_background(BLACK);
 
-        // ========== 输入处理 ==========
-        // 根据当前游戏状态处理不同的输入
+        // ========== Input Processing ==========
+        // Handle different inputs based on current game state
         match game.state {
-            // 游玩状态：处理移动和打开背包
+            // Playing state: handle movement and open inventory
             GameState::Playing => {
-                // 上移：W键或方向键上
+                // Move up: W key or up arrow
                 if is_key_pressed(KeyCode::W) || is_key_pressed(KeyCode::Up) {
                     game.move_player(0, -1);
                 }
-                // 下移：S键或方向键下
+                // Move down: S key or down arrow
                 if is_key_pressed(KeyCode::S) || is_key_pressed(KeyCode::Down) {
                     game.move_player(0, 1);
                 }
-                // 左移：A键或方向键左
+                // Move left: A key or left arrow
                 if is_key_pressed(KeyCode::A) || is_key_pressed(KeyCode::Left) {
                     game.move_player(-1, 0);
                 }
-                // 右移：D键或方向键右
+                // Move right: D key or right arrow
                 if is_key_pressed(KeyCode::D) || is_key_pressed(KeyCode::Right) {
                     game.move_player(1, 0);
                 }
-                // 打开背包：I键
+                // Open inventory: I key
                 if is_key_pressed(KeyCode::I) {
                     game.state = GameState::Inventory;
                 }
-                // 进入城镇/地牢：空格键
+                // Enter town/dungeon: Space key
                 if is_key_pressed(KeyCode::Space) {
                     game.try_enter_location();
                 }
-                // 返回世界地图：ESC键
+                // Return to world map: ESC key
                 if is_key_pressed(KeyCode::Escape) {
                     game.return_to_world_map();
                 }
             }
             
-            // 背包状态：处理关闭背包
+            // Inventory state: handle closing inventory
             GameState::Inventory => {
-                // I键或ESC键关闭背包
+                // I key or ESC key closes inventory
                 if is_key_pressed(KeyCode::I) || is_key_pressed(KeyCode::Escape) {
                     game.state = GameState::Playing;
                 }
             }
             
-            // 对话状态：处理选项选择和跳转
+            // Dialogue state: handle option selection and transitions
             GameState::Dialogue(npc_idx, node_idx, selected) => {
                 let npc = &game.npcs[npc_idx];
                 let node = &npc.dialogue[node_idx];
                 let num_options = node.options.len();
                 
-                // 上下键选择选项
+                // Up/Down keys to select options
                 if is_key_pressed(KeyCode::Up) || is_key_pressed(KeyCode::W) {
                     if selected > 0 {
                         game.state = GameState::Dialogue(npc_idx, node_idx, selected - 1);
@@ -1130,46 +1130,46 @@ async fn main() {
                     }
                 }
                 
-                // 空格键或回车确认选择
+                // Space or Enter to confirm selection
                 if is_key_pressed(KeyCode::Space) || is_key_pressed(KeyCode::Enter) {
                     if let Some(next) = node.options[selected].next_node {
-                        // 跳转到下一个节点
+                        // Jump to next node
                         game.state = GameState::Dialogue(npc_idx, next, 0);
                     } else {
-                        // 结束对话
+                        // End dialogue
                         game.state = GameState::Playing;
                     }
                 }
                 
-                // ESC键退出对话
+                // ESC key exits dialogue
                 if is_key_pressed(KeyCode::Escape) {
                     game.state = GameState::Playing;
                 }
             }
             
-            // 战斗状态：处理战斗选项
+            // Combat state: handle combat options
             GameState::Combat(npc_idx) => {
-                // 选项1：攻击
+                // Option 1: Attack
                 if is_key_pressed(KeyCode::Key1) {
-                    // 计算伤害
+                    // Calculate damage
                     let damage = 15;
                     game.npcs[npc_idx].hp -= damage;
                     game.add_message(format!("You dealt {} damage!", damage));
                     
-                    // 检查敌人是否被击败
+                    // Check if enemy is defeated
                     if game.npcs[npc_idx].hp <= 0 {
                         game.add_message(format!("{} defeated!", game.npcs[npc_idx].name));
-                        game.npcs.remove(npc_idx);  // 从游戏中移除敌人
+                        game.npcs.remove(npc_idx);  // Remove enemy from game
                         game.state = GameState::Playing;
                     } else {
-                        // 敌人反击
+                        // Enemy counterattack
                         let enemy_damage = 10;
                         game.player.hp -= enemy_damage;
                         game.add_message(format!("Enemy dealt {} damage!", enemy_damage));
                     }
                 }
                 
-                // 选项3：逃跑
+                // Option 3: Run
                 if is_key_pressed(KeyCode::Key3) {
                     game.add_message("You ran away!".to_string());
                     game.state = GameState::Playing;
@@ -1177,26 +1177,26 @@ async fn main() {
             }
         }
         
-        // ========== 更新游戏状态 ==========
-        // 更新摄像机位置，跟随玩家
+        // ========== Update Game State ==========
+        // Update camera position to follow player
         game.update_camera();
         
-        // ========== 渲染 ==========
-        // 绘制游戏主界面（地图、NPC、玩家）
+        // ========== Rendering ==========
+        // Draw main game interface (map, NPCs, player)
         draw_game(&game, &font);
         
-        // 绘制UI元素（状态栏、消息日志）
+        // Draw UI elements (status bar, message log)
         draw_ui(&game, &font);
         
-        // 根据当前状态绘制额外的界面
+        // Draw additional interfaces based on current state
         match game.state {
-            GameState::Inventory => draw_inventory(&game, &font),         // 背包界面
-            GameState::Dialogue(npc_idx, node_idx, selected) => draw_dialogue(&game, npc_idx, node_idx, selected, &font), // 对话界面
-            GameState::Combat(idx) => draw_combat(&game, idx, &font),     // 战斗界面
-            _ => {}  // Playing 状态不需要额外界面
+            GameState::Inventory => draw_inventory(&game, &font),         // Inventory interface
+            GameState::Dialogue(npc_idx, node_idx, selected) => draw_dialogue(&game, npc_idx, node_idx, selected, &font), // Dialogue interface
+            GameState::Combat(idx) => draw_combat(&game, idx, &font),     // Combat interface
+            _ => {}  // Playing state doesn't need extra interfaces
         }
         
-        // 等待下一帧（控制帧率，处理系统事件）
+        // Wait for next frame (controls frame rate, handles system events)
         next_frame().await;
     }
 }
